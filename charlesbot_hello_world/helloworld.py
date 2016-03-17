@@ -3,6 +3,7 @@ from charlesbot.config import configuration
 from charlesbot.slack.slack_message import SlackMessage
 from charlesbot.util.parse import does_msg_contain_prefix
 import asyncio
+import aiohttp
 
 
 class HelloWorld(BasePlugin):
@@ -30,5 +31,19 @@ class HelloWorld(BasePlugin):
         if not does_msg_contain_prefix("!hn", message.text):
             return
 
-        return_msg = "Hi there!"
-        yield from self.slack.send_channel_message(message.channel, return_msg)
+        return_msg = yield from self.get_all_hn_top_stories()
+        yield from self.slack.send_channel_message(message.channel, str(return_msg))
+
+    @asyncio.coroutine
+    def get_all_hn_top_stories(self):
+        hn_top_stories_url = "https://hacker-news.firebaseio.com/v0/topstories.json"
+        response = yield from aiohttp.get(hn_top_stories_url)
+        if not response.status == 200:
+            text = yield from response.text()
+            self.log.error("URL: %s" % url)
+            self.log.error("Response status code was %s" % str(response.status))
+            self.log.error(response.headers)
+            self.log.error(text)
+            response.close()
+            return []
+        return (yield from response.json())
