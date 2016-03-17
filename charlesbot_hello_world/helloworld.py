@@ -1,5 +1,7 @@
 from charlesbot.base_plugin import BasePlugin
 from charlesbot.config import configuration
+from charlesbot.slack.slack_message import SlackMessage
+from charlesbot.util.parse import does_msg_contain_prefix
 import asyncio
 
 
@@ -21,3 +23,12 @@ class HelloWorld(BasePlugin):
     @asyncio.coroutine
     def process_message(self, message):
         self.log.info("Processing message %s" % message)
+
+        if not type(message) is SlackMessage:
+            return
+
+        if not does_msg_contain_prefix("!hn", message.text):
+            return
+
+        return_msg = "Hi there!"
+        yield from self.slack.send_channel_message(message.channel, return_msg)
