@@ -21,7 +21,7 @@ class HelloWorld(BasePlugin):
 
     def get_help_message(self):
         help_msg = []
-        help_msg.append("!command - Does a really neat thing!")
+        help_msg.append("!hn - Print out the top %s stories currently trending on Hacker News" % self.num_articles)
         return "\n".join(help_msg)
 
     @asyncio.coroutine
