@@ -5,6 +5,7 @@ from charlesbot.slack.slack_attachment import SlackAttachment
 from charlesbot.util.parse import does_msg_contain_prefix
 import asyncio
 import aiohttp
+from aiocron import crontab
 
 
 class HelloWorld(BasePlugin):
@@ -12,6 +13,7 @@ class HelloWorld(BasePlugin):
     def __init__(self):
         super().__init__("HelloWorld")
         self.load_config()
+        self.schedule_timer_message()
 
     def load_config(self):  # pragma: no cover
         config_dict = configuration.get()
@@ -78,3 +80,35 @@ class HelloWorld(BasePlugin):
         return SlackAttachment(fallback=formatted_msg,
                                text=formatted_msg,
                                mrkdwn_in=["text"])
+
+    @asyncio.coroutine
+    def get_all_hn_new_stories(self):
+        hn_new_stories_url = "https://hacker-news.firebaseio.com/v0/newstories.json"
+        response = yield from aiohttp.get(hn_new_stories_url)
+        if not response.status == 200:
+            text = yield from response.text()
+            self.log.error("URL: %s" % url)
+            self.log.error("Response status code was %s" % str(response.status))
+            self.log.error(response.headers)
+            self.log.error(text)
+            response.close()
+            return []
+        return (yield from response.json())
+
+    def schedule_timer_message(self):
+        "Print out the top five newly submitted HN stories every 5 minutes"
+        timer = crontab('*/5 * * * *', func=self.send_timer_message, start=False)
+        timer.start()
+
+    @asyncio.coroutine
+    def send_timer_message(self):
+        raw_story_ids = yield from self.get_all_hn_new_stories()
+        return_attachment = yield from self.print_top_n_hn_stories(5, raw_story_ids)
+        yield from self.slack.api_call(
+            'chat.postMessage',
+            channel="#general",
+            attachments=return_attachment,
+            as_user=False,
+            username="Hacker News",
+            icon_url="https://s3-us-west-2.amazonaws.com/slack-files2/bot_icons/2016-03-18/27749445461_48.png"
+        )
