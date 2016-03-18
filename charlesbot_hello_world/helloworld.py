@@ -1,6 +1,7 @@
 from charlesbot.base_plugin import BasePlugin
 from charlesbot.config import configuration
 from charlesbot.slack.slack_message import SlackMessage
+from charlesbot.slack.slack_attachment import SlackAttachment
 from charlesbot.util.parse import does_msg_contain_prefix
 import asyncio
 import aiohttp
@@ -32,8 +33,15 @@ class HelloWorld(BasePlugin):
             return
 
         raw_story_ids = yield from self.get_all_hn_top_stories()
-        return_msg = yield from self.print_top_n_hn_stories(5, raw_story_ids)
-        yield from self.slack.send_channel_message(message.channel, str(return_msg))
+        return_attachment = yield from self.print_top_n_hn_stories(5, raw_story_ids)
+        yield from self.slack.api_call(
+            'chat.postMessage',
+            channel=message.channel,
+            attachments=return_attachment,
+            as_user=False,
+            username="Hacker News",
+            icon_url="https://s3-us-west-2.amazonaws.com/slack-files2/bot_icons/2016-03-18/27749445461_48.png"
+        )
 
     @asyncio.coroutine
     def get_all_hn_top_stories(self):
@@ -65,5 +73,8 @@ class HelloWorld(BasePlugin):
                 response.close()
                 continue
             json_story = yield from response.json()
-            return_string.append("%s (%s)" % (json_story['title'], json_story['url']))
-        return "\n".join(return_string)
+            return_string.append("<%s|%s>" % (json_story['url'], json_story['title']))
+        formatted_msg = "\n".join(return_string)
+        return SlackAttachment(fallback=formatted_msg,
+                               text=formatted_msg,
+                               mrkdwn_in=["text"])
