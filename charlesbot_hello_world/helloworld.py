@@ -17,7 +17,7 @@ class HelloWorld(BasePlugin):
 
     def load_config(self):  # pragma: no cover
         config_dict = configuration.get()
-        self.token = config_dict['helloworld']['config_key']
+        self.num_articles = config_dict['helloworld']['num_articles']
 
     def get_help_message(self):
         help_msg = []
@@ -35,7 +35,7 @@ class HelloWorld(BasePlugin):
             return
 
         raw_story_ids = yield from self.get_all_hn_top_stories()
-        return_attachment = yield from self.print_top_n_hn_stories(5, raw_story_ids)
+        return_attachment = yield from self.print_top_n_hn_stories(self.num_articles, raw_story_ids)
         yield from self.slack.api_call(
             'chat.postMessage',
             channel=message.channel,
@@ -103,7 +103,7 @@ class HelloWorld(BasePlugin):
     @asyncio.coroutine
     def send_timer_message(self):
         raw_story_ids = yield from self.get_all_hn_new_stories()
-        return_attachment = yield from self.print_top_n_hn_stories(5, raw_story_ids)
+        return_attachment = yield from self.print_top_n_hn_stories(self.num_articles, raw_story_ids)
         yield from self.slack.api_call(
             'chat.postMessage',
             channel="#general",
