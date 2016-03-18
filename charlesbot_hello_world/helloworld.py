@@ -31,7 +31,8 @@ class HelloWorld(BasePlugin):
         if not does_msg_contain_prefix("!hn", message.text):
             return
 
-        return_msg = yield from self.get_all_hn_top_stories()
+        raw_story_ids = yield from self.get_all_hn_top_stories()
+        return_msg = yield from self.print_top_n_hn_stories(5, raw_story_ids)
         yield from self.slack.send_channel_message(message.channel, str(return_msg))
 
     @asyncio.coroutine
@@ -47,3 +48,22 @@ class HelloWorld(BasePlugin):
             response.close()
             return []
         return (yield from response.json())
+
+    @asyncio.coroutine
+    def print_top_n_hn_stories(self, number_of_stories, raw_story_ids):
+        return_string = []
+        for story in raw_story_ids[:number_of_stories]:
+            url = "https://hacker-news.firebaseio.com/v0/item/%s.json" % story
+            self.log.info("Now processing story: %s" % url)
+            response = yield from aiohttp.get(url)
+            if not response.status == 200:
+                text = yield from response.text()
+                self.log.error("URL: %s" % url)
+                self.log.error("Response status code was %s" % str(response.status))
+                self.log.error(response.headers)
+                self.log.error(text)
+                response.close()
+                continue
+            json_story = yield from response.json()
+            return_string.append("%s (%s)" % (json_story['title'], json_story['url']))
+        return "\n".join(return_string)
